@@ -57,11 +57,46 @@ fi
 # ── Создаём нужные папки ──────────────────────────────────────────────────────
 mkdir -p data/thumbs data/reports
 
+# ── Создаём .app приложения ───────────────────────────────────────────────────
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "Создаю приложения..."
+
+# Запустить DupeFinder.app
+rm -rf "$PROJECT_DIR/Запустить DupeFinder.app"
+TMPSCRIPT=$(mktemp /tmp/dupefinder_XXXXXX.applescript)
+cat > "$TMPSCRIPT" << APPLESCRIPT
+on run
+    set projDir to "$PROJECT_DIR"
+    do shell script "cd " & quoted form of projDir & " && python3 app.py > /tmp/dupefinder.log 2>&1 &"
+    delay 1.5
+    open location "http://localhost:5001"
+end run
+APPLESCRIPT
+osacompile -o "$PROJECT_DIR/Запустить DupeFinder.app" "$TMPSCRIPT" 2>/dev/null
+rm -f "$TMPSCRIPT"
+
+# Обновить DupeFinder.app
+rm -rf "$PROJECT_DIR/Обновить DupeFinder.app"
+TMPSCRIPT=$(mktemp /tmp/dupefinder_XXXXXX.applescript)
+cat > "$TMPSCRIPT" << APPLESCRIPT
+on run
+    set projDir to "$PROJECT_DIR"
+    tell application "Terminal"
+        activate
+        do script "cd " & quoted form of projDir & " && bash 'Обновить.command'"
+    end tell
+end run
+APPLESCRIPT
+osacompile -o "$PROJECT_DIR/Обновить DupeFinder.app" "$TMPSCRIPT" 2>/dev/null
+rm -f "$TMPSCRIPT"
+
 echo ""
 echo "================================================"
 echo "  Установка завершена успешно!"
 echo ""
-echo "  Теперь дважды кликните 'Запустить.command'"
+echo "  Дважды кликните 'Запустить DupeFinder.app'"
+echo "  Для обновлений: 'Обновить DupeFinder.app'"
 echo "================================================"
 echo ""
 read -p "Нажмите Enter для закрытия..."
