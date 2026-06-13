@@ -20,10 +20,12 @@ h3 { font-size: .85rem; font-weight: 600; color: #6e6e73; margin: 14px 0 8px; te
 .group-tag { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e5e5ea; border-radius: 20px; padding: 4px 12px; font-size: .78rem; font-weight: 600; color: #3a3a3c; margin-bottom: 10px; }
 .group-tag.cross { background: #f0f0ff; border-color: #c7c7ff; color: #3730a3; }
 .pair { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-.card { display: flex; flex-direction: column; align-items: center; width: 148px; flex-shrink: 0; }
+.card { display: flex; flex-direction: column; align-items: center; width: 160px; flex-shrink: 0; }
 .card img { width: 128px; height: 128px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e5ea; }
 .no-img { width: 128px; height: 128px; background: #e5e5ea; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .75rem; color: #6e6e73; }
 .meta { text-align: center; font-size: .76rem; margin-top: 8px; line-height: 1.55; color: #3a3a3c; }
+.meta-sender { font-size: .82rem; font-weight: 700; color: #1d1d1f; margin-top: 6px; word-break: break-word; }
+.meta-dt { font-size: .73rem; color: #6e6e73; margin-top: 2px; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .68rem; font-weight: 600; margin-bottom: 4px; }
 .badge-exact { background: #ffd60a; color: #1d1d1f; }
 .badge-similar { background: #30d158; color: #fff; }
@@ -47,6 +49,15 @@ def _img_to_base64(path: str) -> str:
         return base64.b64encode(f.read()).decode()
 
 
+def _fmt_dt(raw: str) -> tuple[str, str]:
+    """Returns (date_str, time_str) formatted for display."""
+    try:
+        dt = datetime.fromisoformat(raw)
+        return dt.strftime("%d.%m.%Y"), dt.strftime("%H:%M")
+    except Exception:
+        return raw[:10], ""
+
+
 def _photo_card(photo: dict, label: str, badge_class: str) -> str:
     thumb_b64 = _img_to_base64(photo.get("thumb_path", ""))
     full_b64  = _img_to_base64(photo.get("full_path", "")) or thumb_b64
@@ -55,17 +66,16 @@ def _photo_card(photo: dict, label: str, badge_class: str) -> str:
         + ' data-full="data:image/jpeg;base64,' + full_b64 + '" alt="фото">'
         if thumb_b64 else '<div class="no-img">нет превью</div>'
     )
-    date_str = photo.get("date", "")[:10]
-    group = photo.get("group_name", "")
-    sender = photo.get("sender_name", "")
+    date_str, time_str = _fmt_dt(photo.get("date", ""))
+    sender = photo.get("sender_name", "") or "Неизвестен"
+    dt_label = date_str + (" в " + time_str if time_str else "")
     return (
         '<div class="card">'
         + img_tag
         + '<div class="meta">'
         + '<span class="badge ' + badge_class + '">' + label + '</span>'
-        + '<div>' + group + '</div>'
-        + '<div>' + sender + '</div>'
-        + '<div>' + date_str + '</div>'
+        + '<div class="meta-sender">&#128100; ' + sender + '</div>'
+        + '<div class="meta-dt">&#128197; ' + dt_label + '</div>'
         + '</div></div>'
     )
 
