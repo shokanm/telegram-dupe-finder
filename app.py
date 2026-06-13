@@ -84,10 +84,10 @@ h1{font-size:1.5rem;font-weight:700;letter-spacing:-.03em;margin-bottom:6px}
 .btn-report{padding:9px 18px;background:var(--green);color:#fff;
   border:none;border-radius:8px;font-size:.82rem;font-weight:600;
   cursor:pointer;text-decoration:none;white-space:nowrap}
-.tg-row{display:flex;gap:8px;align-items:center;overflow:hidden}
-.group-select{flex:1;background:var(--bg);border:1.5px solid var(--border);
+.tg-row{display:flex;gap:8px;align-items:center}
+.group-select{flex:1;min-width:0;background:var(--bg);border:1.5px solid var(--border);
   border-radius:10px;padding:10px 14px;font-size:.82rem;color:var(--muted);
-  appearance:none;cursor:pointer;outline:none}
+  appearance:none;cursor:pointer;outline:none;overflow:hidden;text-overflow:ellipsis}
 .group-select.loaded{color:var(--text);border-color:var(--blue)}
 .group-select:disabled{cursor:default;opacity:.5}
 .btn-load{padding:10px 14px;background:var(--white);border:1.5px solid var(--border);
