@@ -157,7 +157,6 @@ h1{font-size:1.5rem;font-weight:700;letter-spacing:-.03em;margin-bottom:6px}
   </div>
 
   <button class="btn-run" id="btn-run" onclick="runScan()">Запустить сканирование</button>
-  <button class="btn-clear" id="btn-clear" onclick="clearDb()" style="width:100%;margin-top:8px;padding:10px;background:none;border:1.5px solid var(--border);border-radius:10px;color:var(--muted);cursor:pointer;font-size:.85rem;" onmouseover="this.style.borderColor='#e53935';this.style.color='#e53935'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Очистить базу данных</button>
 
   <div id="progress-wrap" style="display:none;margin-top:12px">
     <div style="display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);margin-bottom:6px">
@@ -389,6 +388,7 @@ def run_scan():
         try:
             Path("data").mkdir(exist_ok=True)
             init_db()
+            clear_all()
             yield "data: Инициализация...\n\n"
 
             scanned_group_ids = []
