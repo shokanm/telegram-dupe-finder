@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Инструкция — Поиск дубликатов фото</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:    #0071e3;
+    --blue-lt: #e8f1fb;
+    --green:   #28a745;
+    --green-lt:#eaf7ee;
+    --amber:   #d97706;
+    --amber-lt:#fffbeb;
+    --red-lt:  #fff1f0;
+    --text:    #1d1d1f;
+    --muted:   #6e6e73;
+    --border:  #e5e5ea;
+    --bg:      #f5f5f7;
+    --white:   #ffffff;
+    --radius:  14px;
+    --mono:    'SF Mono', ui-monospace, 'Cascadia Code', Menlo, monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ─────────────────────────────── */
+  .site-header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .site-header .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: .85rem; font-weight: 600; color: var(--text);
+    text-decoration: none;
+  }
+  .site-header .logo svg { flex-shrink: 0; }
+  .nav-pills { display: flex; gap: 4px; }
+  .nav-pills a {
+    font-size: .78rem; font-weight: 500; color: var(--muted);
+    padding: 4px 10px; border-radius: 20px; text-decoration: none;
+    transition: background .15s, color .15s;
+  }
+  .nav-pills a:hover { background: var(--blue-lt); color: var(--blue); }
+
+  /* ── HERO ───────────────────────────────── */
+  .hero {
+    max-width: 720px; margin: 0 auto; padding: 72px 24px 48px;
+    text-align: center;
+    animation: fadeUp .55s ease both;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--blue-lt); color: var(--blue);
+    font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 700; letter-spacing: -.03em; line-height: 1.15;
+    margin-bottom: 14px;
+  }
+  .hero p {
+    font-size: 1.05rem; color: var(--muted);
+    max-width: 520px; margin: 0 auto 32px;
+  }
+  .hero-meta {
+    display: inline-flex; align-items: center; gap: 20px;
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 40px; padding: 8px 20px;
+    font-size: .8rem; color: var(--muted);
+  }
+  .hero-meta span { display: flex; align-items: center; gap: 6px; }
+  .hero-meta svg { opacity: .5; }
+
+  /* ── TOC ────────────────────────────────── */
+  .toc-wrap {
+    max-width: 720px; margin: 0 auto 12px; padding: 0 24px;
+    animation: fadeUp .55s .1s ease both;
+  }
+  .toc {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;
+  }
+  .toc-title {
+    grid-column: 1/-1; font-size: .7rem; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .toc a {
+    display: flex; align-items: center; gap: 10px;
+    font-size: .82rem; color: var(--muted); text-decoration: none;
+    padding: 5px 0; border-bottom: 1px solid transparent;
+    transition: color .15s;
+  }
+  .toc a:hover { color: var(--blue); }
+  .toc-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 6px;
+    background: var(--bg); font-size: .7rem; font-weight: 700;
+    color: var(--muted); flex-shrink: 0;
+  }
+
+  /* ── MAIN CONTENT ───────────────────────── */
+  .content {
+    max-width: 720px; margin: 0 auto; padding: 0 24px 80px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  /* ── SECTION CARD ───────────────────────── */
+  .section {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    animation: fadeUp .5s ease both;
+  }
+  .section:nth-child(1) { animation-delay: .05s; }
+  .section:nth-child(2) { animation-delay: .1s; }
+  .section:nth-child(3) { animation-delay: .15s; }
+  .section:nth-child(4) { animation-delay: .2s; }
+  .section:nth-child(5) { animation-delay: .25s; }
+  .section:nth-child(6) { animation-delay: .3s; }
+
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--blue-lt); color: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-icon.green { background: var(--green-lt); color: var(--green); }
+  .section-icon.amber { background: var(--amber-lt); color: var(--amber); }
+
+  .section-title { font-size: 1rem; font-weight: 600; }
+  .section-tag {
+    margin-left: auto;
+    font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 20px;
+    background: var(--green-lt); color: var(--green);
+  }
+
+  .section-body { padding: 24px; }
+
+  /* ── INTRO BLOCK ─────────────────────────── */
+  .intro-text {
+    font-size: 1rem; color: var(--muted); line-height: 1.7;
+  }
+  .feature-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px;
+  }
+  .feature-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--bg); border-radius: 10px; padding: 14px;
+  }
+  .feature-icon {
+    font-size: 1.2rem; flex-shrink: 0; margin-top: 1px;
+  }
+  .feature-item strong { display: block; font-size: .85rem; margin-bottom: 2px; }
+  .feature-item span { font-size: .78rem; color: var(--muted); }
+
+  /* ── STEPS ──────────────────────────────── */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: grid; grid-template-columns: 40px 1fr;
+    gap: 0 16px;
+  }
+  .step:not(:last-child) .step-line { background: var(--border); }
+  .step-left { display: flex; flex-direction: column; align-items: center; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 700; flex-shrink: 0;
+    position: relative; z-index: 1;
+  }
+  .step-line {
+    width: 1px; flex: 1; background: var(--border); margin: 4px 0;
+  }
+  .step-right { padding-bottom: 24px; }
+  .step:last-child .step-right { padding-bottom: 0; }
+  .step-title {
+    font-size: .9rem; font-weight: 600; padding-top: 4px; margin-bottom: 10px;
+  }
+  .step-body { font-size: .85rem; color: var(--muted); }
+  .step-body ul, .step-body ol {
+    padding-left: 18px; display: flex; flex-direction: column; gap: 5px;
+  }
+  .step-body li { line-height: 1.55; }
+
+  /* ── CODE BLOCK ─────────────────────────── */
+  .code-wrap {
+    background: #1c1c1e; border-radius: 10px;
+    overflow: hidden; margin: 12px 0;
+  }
+  .code-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .code-bar .dots { display: flex; gap: 6px; }
+  .code-bar .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .code-label { font-size: .68rem; color: rgba(255,255,255,.3); font-family: var(--mono); }
+  .copy-btn {
+    font-size: .68rem; color: rgba(255,255,255,.4); background: none;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 5px;
+    padding: 2px 8px; cursor: pointer; font-family: var(--mono);
+    transition: color .15s, border-color .15s;
+  }
+  .copy-btn:hover { color: rgba(255,255,255,.8); border-color: rgba(255,255,255,.3); }
+  .copy-btn.copied { color: #28c840; border-color: #28c840; }
+  pre {
+    padding: 14px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: .8rem; line-height: 1.7;
+    color: #e8e8ed;
+  }
+  .kw  { color: #fc7ab0; }
+  .str { color: #fc9a59; }
+  .num { color: #79d6f5; }
+  .cm  { color: rgba(255,255,255,.3); }
+  .pl  { color: #c5e478; }
+
+  /* inline code */
+  code {
+    font-family: var(--mono); font-size: .78em;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 5px; color: var(--blue);
+  }
+
+  /* ── INFO CARDS ─────────────────────────── */
+  .info-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .info-card {
+    display: flex; align-items: flex-start; gap: 12px;
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .info-card.blue { background: var(--blue-lt); }
+  .info-card.amber { background: var(--amber-lt); }
+  .info-card.green { background: var(--green-lt); }
+  .info-card-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+  .info-card strong { display: block; font-size: .82rem; margin-bottom: 2px; color: var(--text); }
+  .info-card span { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── RESULTS ─────────────────────────────── */
+  .result-items { display: flex; flex-direction: column; gap: 8px; }
+  .result-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; border-radius: 10px; background: var(--bg);
+  }
+  .result-badge {
+    display: inline-flex; align-items: center;
+    font-size: .7rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 20px; flex-shrink: 0; margin-top: 1px;
+  }
+  .badge-yellow { background: #ffd60a; color: #1d1d1f; }
+  .badge-green  { background: #30d158; color: #fff; }
+  .result-item p { font-size: .83rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── FAQ ─────────────────────────────────── */
+  .faq-list { display: flex; flex-direction: column; gap: 0; }
+  .faq-item { border-bottom: 1px solid var(--border); }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; cursor: pointer;
+    font-size: .88rem; font-weight: 500;
+    user-select: none; list-style: none;
+    transition: color .15s;
+  }
+  .faq-q:hover { color: var(--blue); }
+  .faq-chevron {
+    width: 18px; height: 18px; flex-shrink: 0; color: var(--muted);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .faq-item.open .faq-chevron { transform: rotate(180deg); }
+  .faq-a {
+    font-size: .83rem; color: var(--muted); line-height: 1.65;
+    max-height: 0; overflow: hidden;
+    transition: max-height .3s cubic-bezier(.4,0,.2,1), padding .3s;
+  }
+  .faq-item.open .faq-a { max-height: 200px; padding-bottom: 14px; }
+
+  /* ── SECURITY BLOCK ─────────────────────── */
+  .security-block {
+    display: flex; gap: 14px;
+    background: var(--amber-lt); border: 1px solid #fde68a;
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .security-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+  .security-block strong { display: block; font-size: .85rem; margin-bottom: 4px; }
+  .security-block p { font-size: .82rem; color: #92400e; line-height: 1.6; }
+
+  /* ── FOOTER ─────────────────────────────── */
+  .footer {
+    text-align: center; padding: 32px 24px;
+    font-size: .75rem; color: var(--muted);
+    max-width: 720px; margin: 0 auto;
+  }
+
+  /* ── ANIMATIONS ─────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── PRINT ──────────────────────────────── */
+  @media print {
+    .site-header, .hero-meta, .toc-wrap { display: none; }
+    .section { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <a class="logo" href="#">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect width="20" height="20" rx="5" fill="#0071e3"/>
+      <path d="M5 10h10M10 5v10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    DupeFinder
+  </a>
+  <nav class="nav-pills">
+    <a href="#setup">Настройка</a>
+    <a href="#launch">Запуск</a>
+    <a href="#results">Результаты</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
+    Руководство пользователя
+  </div>
+  <h1>Поиск дубликатов фото в Telegram</h1>
+  <p>Инструкция по установке и запуску программы на macOS</p>
+  <div class="hero-meta">
+    <span>
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 0a6 6 0 100 12A6 6 0 006 0zm0 1.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zm.5 2H5.5v4l3 1.8.5-.87-2.5-1.5V3.5z"/></svg>
+      ~15 мин на настройку
+    </span>
+    <span>
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M4 2V1M8 2V1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      macOS
+    </span>
+    <span>
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M10 6A4 4 0 112 6a4 4 0 018 0z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 4v2.5l1.5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Один раз
+    </span>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc-wrap">
+  <div class="toc">
+    <div class="toc-title">Содержание</div>
+    <a href="#intro"><span class="toc-num">1</span> Что делает программа</a>
+    <a href="#setup"><span class="toc-num">2</span> Первоначальная настройка</a>
+    <a href="#launch"><span class="toc-num">3</span> Запуск программы</a>
+    <a href="#results"><span class="toc-num">4</span> Просмотр результатов</a>
+    <a href="#faq"><span class="toc-num">5</span> Частые вопросы</a>
+    <a href="#security"><span class="toc-num">6</span> Безопасность</a>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<main class="content">
+
+  <!-- 1. ЧТО ДЕЛАЕТ -->
+  <section class="section" id="intro">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M2 4h14v10a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.4" fill="none"/>
+          <path d="M5 4V3a1 1 0 011-1h6a1 1 0 011 1v1" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="6.5" cy="9" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+          <circle cx="11.5" cy="9" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M8 9h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="section-title">Что делает программа</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <p class="intro-text">Сканирует две ваши Telegram-группы, находит одинаковые и похожие фотографии, и формирует HTML-отчёт с превью, датами и именами отправителей.</p>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <div class="feature-icon">🔍</div>
+          <div>
+            <strong>Точные дубликаты</strong>
+            <span>Один и тот же файл, отправленный несколько раз</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🖼️</div>
+          <div>
+            <strong>Похожие фото</strong>
+            <span>Визуально схожие изображения с оценкой схожести</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">📊</div>
+          <div>
+            <strong>HTML-отчёт</strong>
+            <span>Открывается в браузере, всё наглядно</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⚡️</div>
+          <div>
+            <strong>Инкрементально</strong>
+            <span>Повторный запуск проверяет только новые фото</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. НАСТРОЙКА -->
+  <section class="section" id="setup">
+    <div class="section-header">
+      <div class="section-icon green">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M6 9l2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="section-title">Первоначальная настройка</div>
+      <span class="section-tag">Один раз</span>
+    </div>
+    <div class="section-body">
+      <div class="steps">
+
+        <!-- ШАГ 1 -->
+        <div class="step">
+          <div class="step-left">
+            <div class="step-num">1</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-right">
+            <div class="step-title">Установите Python</div>
+            <div class="step-body">
+              <ul>
+                <li>Откройте в браузере: <code>python.org/downloads</code></li>
+                <li>Скачайте <strong>Python 3.11</strong> или новее</li>
+                <li>При установке поставьте галочку <strong>"Add Python to PATH"</strong></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- ШАГ 2 -->
+        <div class="step">
+          <div class="step-left">
+            <div class="step-num">2</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-right">
+            <div class="step-title">Получите API-ключи Telegram</div>
+            <div class="step-body">
+              <ol>
+                <li>Откройте в браузере: <code>my.telegram.org</code></li>
+                <li>Введите номер телефона → введите код из приложения Telegram</li>
+                <li>Нажмите <strong>"API development tools"</strong></li>
+                <li>Заполните форму: App title — любое название, Platform — Desktop</li>
+                <li>Нажмите <strong>Create application</strong></li>
+                <li>Скопируйте <code>App api_id</code> (число) и <code>App api_hash</code> (длинная строка)</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- ШАГ 3 -->
+        <div class="step">
+          <div class="step-left">
+            <div class="step-num">3</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-right">
+            <div class="step-title">Заполните файл config.py</div>
+            <div class="step-body">
+              <p style="margin-bottom:10px">Откройте файл <code>config.py</code> в папке программы (правой кнопкой → Открыть в TextEdit) и заполните:</p>
+              <div class="code-wrap">
+                <div class="code-bar">
+                  <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+                  <span class="code-label">config.py</span>
+                  <button class="copy-btn" onclick="copyCode(this)">копировать</button>
+                </div>
+                <pre><span class="pl">API_ID</span>     <span class="kw">=</span> <span class="num">1234567</span>          <span class="cm"># ← ваш api_id</span>
+<span class="pl">API_HASH</span>   <span class="kw">=</span> <span class="str">"abc123..."</span>      <span class="cm"># ← ваш api_hash</span>
+<span class="pl">GROUP_1_ID</span> <span class="kw">=</span> <span class="num">-10012345</span>       <span class="cm"># ← ID первой группы</span>
+<span class="pl">GROUP_2_ID</span> <span class="kw">=</span> <span class="num">-10067890</span>       <span class="cm"># ← ID второй группы</span></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ШАГ 4 -->
+        <div class="step">
+          <div class="step-left">
+            <div class="step-num">4</div>
+          </div>
+          <div class="step-right">
+            <div class="step-title">Узнайте ID ваших групп</div>
+            <div class="step-body">
+              <ol>
+                <li>Откройте Терминал: <strong>Finder → Программы → Утилиты → Терминал</strong></li>
+                <li>Перейдите в папку программы:</li>
+              </ol>
+              <div class="code-wrap" style="margin: 10px 0;">
+                <div class="code-bar">
+                  <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+                  <span class="code-label">Терминал</span>
+                  <button class="copy-btn" onclick="copyCode(this)">копировать</button>
+                </div>
+                <pre><span class="pl">cd</span> путь/к/папке/telegram-dupe-finder
+<span class="pl">pip</span> install -r requirements.txt
+<span class="pl">python</span> list_groups.py</pre>
+              </div>
+              <ol start="3">
+                <li>Введите номер телефона и код из Telegram</li>
+                <li>В списке найдите нужные группы, скопируйте их ID в <code>config.py</code></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. ЗАПУСК -->
+  <section class="section" id="launch">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M7 4l7 5-7 5V4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="section-title">Запуск программы</div>
+    </div>
+    <div class="section-body">
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">Откройте Терминал, перейдите в папку программы и выполните:</p>
+      <div class="code-wrap" style="margin-bottom:18px">
+        <div class="code-bar">
+          <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <span class="code-label">Терминал</span>
+          <button class="copy-btn" onclick="copyCode(this)">копировать</button>
+        </div>
+        <pre><span class="pl">python</span> main.py</pre>
+      </div>
+      <div class="info-grid">
+        <div class="info-card blue">
+          <div class="info-card-icon">🔑</div>
+          <div>
+            <strong>Первый вход</strong>
+            <span>Программа попросит ввести номер телефона и код из Telegram. Это происходит только один раз — сессия сохраняется.</span>
+          </div>
+        </div>
+        <div class="info-card amber">
+          <div class="info-card-icon">⏳</div>
+          <div>
+            <strong>Первое сканирование</strong>
+            <span>Загружает все фото за последний год. Может занять 15–40 минут. Прогресс виден в терминале — не закрывайте окно до завершения.</span>
+          </div>
+        </div>
+        <div class="info-card green">
+          <div class="info-card-icon">⚡️</div>
+          <div>
+            <strong>Повторные запуски</strong>
+            <span>Загружают только новые фото. Занимают несколько минут.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. РЕЗУЛЬТАТЫ -->
+  <section class="section" id="results">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M5 8h8M5 11h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="section-title">Просмотр результатов</div>
+    </div>
+    <div class="section-body">
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:16px">
+        После завершения программа покажет путь к файлу отчёта. Откройте его в браузере <strong>Safari</strong> или <strong>Chrome</strong>:
+      </p>
+      <div class="code-wrap" style="margin-bottom:18px">
+        <div class="code-bar">
+          <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <span class="code-label">Путь к отчёту</span>
+        </div>
+        <pre><span class="cm">data/reports/report_2026-06-08_15-30.html</span></pre>
+      </div>
+      <div class="result-items">
+        <div class="result-item">
+          <span class="result-badge badge-yellow">Точные</span>
+          <p>Одинаковые файлы, отправленные в группу несколько раз. Совпадение 100%.</p>
+        </div>
+        <div class="result-item">
+          <span class="result-badge badge-green">Похожие</span>
+          <p>Визуально схожие изображения. Рядом отображается оценка схожести — чем меньше число, тем больше похожи.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. FAQ -->
+  <section class="section" id="faq">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M9 13v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M7 7c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L9 9.5V11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="section-title">Частые вопросы</div>
+    </div>
+    <div class="section-body">
+      <div class="faq-list">
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            Программа не запускается
+            <svg class="faq-chevron" viewBox="0 0 18 18" fill="none"><path d="M4 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="faq-a">Убедитесь что Python установлен: введите <code>python --version</code> в Терминале. Должна появиться версия, например <code>Python 3.11.4</code>. Если ошибка — переустановите Python с сайта python.org.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            Ошибка "API_ID не заполнен"
+            <svg class="faq-chevron" viewBox="0 0 18 18" fill="none"><path d="M4 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="faq-a">Откройте файл <code>config.py</code> и убедитесь что все четыре поля заполнены: <code>API_ID</code>, <code>API_HASH</code>, <code>GROUP_1_ID</code>, <code>GROUP_2_ID</code>. Значение <code>0</code> означает что поле не заполнено.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            Telegram просит код при каждом запуске
+            <svg class="faq-chevron" viewBox="0 0 18 18" fill="none"><path d="M4 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="faq-a">Не удаляйте файл <code>data/session.session</code> — в нём сохранена ваша авторизация. Если файл исчез, программа попросит войти заново — это нормально, нужно ввести номер и код один раз.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            Как запустить повторно через неделю
+            <svg class="faq-chevron" viewBox="0 0 18 18" fill="none"><path d="M4 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="faq-a">Просто снова запустите <code>python main.py</code>. Программа автоматически определит, какие фото уже были проверены, и загрузит только новые. Повторные запуски занимают несколько минут.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. БЕЗОПАСНОСТЬ -->
+  <section class="section" id="security">
+    <div class="section-header">
+      <div class="section-icon amber">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 2L3 5v5c0 3.5 2.5 6.3 6 7 3.5-.7 6-3.5 6-7V5L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M9 7v3M9 12v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="section-title">Безопасность</div>
+    </div>
+    <div class="section-body">
+      <div class="security-block">
+        <div class="security-icon">⚠️</div>
+        <div>
+          <strong>Важно: защитите эти файлы</strong>
+          <p>Файлы <code>config.py</code> и <code>data/session.session</code> содержат доступ к вашему аккаунту Telegram. <strong>Не передавайте их посторонним</strong> и не публикуйте в интернете — через них можно получить доступ к вашим сообщениям.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  DupeFinder — инструмент для поиска дубликатов фотографий в Telegram-группах
+</footer>
+
+<script>
+function toggleFaq(el) {
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-wrap').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ скопировано';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'копировать'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>

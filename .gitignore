@@ -1,0 +1,9 @@
+data/session.session*
+data/thumbs/
+data/reports/
+data/dupes.db
+config.py
+__pycache__/
+*.pyc
+.DS_Store
+.venv/

@@ -1,0 +1,5 @@
+telethon>=1.36
+Pillow>=10.0
+imagehash>=4.3
+tqdm>=4.66
+flask>=3.0
