@@ -91,10 +91,11 @@ def _pair_html_exact(a: dict, b: dict) -> str:
 
 def _pair_html_similar(a: dict, b: dict, dist: int, cross: bool) -> str:
     badge = "badge-cross" if cross else "badge-similar"
+    similarity = round((1 - dist / 256) * 100)
     return (
         '<div class="pair">'
         + _photo_card(a, "Фото 1", badge)
-        + '<div class="dist">расстояние<br><b>' + str(dist) + '</b></div>'
+        + '<div class="dist">схожесть<br><b>' + str(similarity) + '%</b></div>'
         + _photo_card(b, "Фото 2", badge)
         + '</div>\n'
     )
@@ -187,7 +188,7 @@ def generate_report(
         '<div class="stat"><div class="stat-num">' + str(n_total) + '</div><div class="stat-label">Всего находок</div></div>'
         '</div>\n'
         '<h2>Точные дубликаты (одинаковый файл)</h2>\n' + exact_html + '\n'
-        '<h2>Похожие фото (perceptual hash, порог ' + threshold + ')</h2>\n' + similar_html + '\n'
+        '<h2>Похожие фото</h2>\n' + similar_html + '\n'
         '<div class="lightbox" id="lb" onclick="closeLb(event)">'
         '<span class="lightbox-close" onclick="document.getElementById(\'lb\').classList.remove(\'active\')">&times;</span>'
         '<img id="lb-img" src="" alt="">'
