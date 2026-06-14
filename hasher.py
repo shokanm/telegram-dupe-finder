@@ -74,10 +74,12 @@ def _sift_extract(file_path: str):
 def find_crop_duplicates(
     photos: list[dict],
     exact_hashes: set[str],
+    sift_threshold: float | None = None,
+    min_inliers: int | None = None,
 ) -> list[tuple[dict, dict, float]]:
     """
     Detect pairs where one photo is a crop/zoom of the other.
-    Two-stage: SIFT score >= threshold, then RANSAC inlier count >= min_inliers.
+    Two-stage: SIFT score >= sift_threshold, then RANSAC inlier count >= min_inliers.
     Returns triples: (photo_a, photo_b, sift_score 0-1).
     """
     import config
@@ -85,8 +87,10 @@ def find_crop_duplicates(
     from skimage.measure import ransac
     from skimage.transform import AffineTransform
 
-    sift_threshold = getattr(config, "CROP_SIFT_THRESHOLD", 0.65)
-    min_inliers    = getattr(config, "CROP_MIN_INLIERS", 50)
+    if sift_threshold is None:
+        sift_threshold = getattr(config, "CROP_SIFT_THRESHOLD", 0.65)
+    if min_inliers is None:
+        min_inliers = getattr(config, "CROP_MIN_INLIERS", 50)
 
     candidates = [p for p in photos if p["file_hash"] not in exact_hashes]
 

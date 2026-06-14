@@ -146,6 +146,27 @@ h1{font-size:1.5rem;font-weight:700;letter-spacing:-.03em;margin-bottom:6px}
     </label>
   </div>
 
+  <div id="crop-fields" style="display:none">
+    <div class="field">
+      <div class="label">Точность совпадения: <span id="sift-val">65</span>%</div>
+      <input type="range" id="sift-threshold" min="50" max="90" value="65"
+        oninput="document.getElementById('sift-val').textContent=this.value"
+        style="width:100%;accent-color:var(--blue);margin-top:6px">
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:4px">
+        <span>Мягче (больше находок)</span><span>Строже (меньше ложных)</span>
+      </div>
+    </div>
+    <div class="field">
+      <div class="label">Мин. согласованных точек: <span id="inliers-val">50</span></div>
+      <input type="range" id="min-inliers" min="20" max="150" value="50"
+        oninput="document.getElementById('inliers-val').textContent=this.value"
+        style="width:100%;accent-color:var(--blue);margin-top:6px">
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:4px">
+        <span>Меньше (больше находок)</span><span>Больше (меньше ложных)</span>
+      </div>
+    </div>
+  </div>
+
   <div class="field">
     <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
       <input type="checkbox" id="use-phash" style="margin-top:3px;accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
@@ -195,6 +216,9 @@ let selectedFolder = '';
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('use-phash').addEventListener('change', function() {
     document.getElementById('threshold-field').style.display = this.checked ? 'block' : 'none';
+  });
+  document.getElementById('use-crop').addEventListener('change', function() {
+    document.getElementById('crop-fields').style.display = this.checked ? 'block' : 'none';
   });
 });
 
@@ -275,11 +299,13 @@ async function runScan() {
   document.getElementById('progress-wrap').style.display = 'none';
   document.getElementById('progress-fill').style.width = '0%';
 
-  const usePhash = document.getElementById('use-phash').checked ? '1' : '0';
-  const useCrop  = document.getElementById('use-crop').checked  ? '1' : '0';
-  const threshold = document.getElementById('threshold').value;
+  const usePhash      = document.getElementById('use-phash').checked ? '1' : '0';
+  const useCrop       = document.getElementById('use-crop').checked  ? '1' : '0';
+  const threshold     = document.getElementById('threshold').value;
+  const siftThreshold = document.getElementById('sift-threshold').value;
+  const minInliers    = document.getElementById('min-inliers').value;
   const groupId = document.getElementById('group-select')?.value || '';
-  const params = new URLSearchParams({ source, folder: selectedFolder, threshold, group: groupId, use_phash: usePhash, use_crop: useCrop });
+  const params = new URLSearchParams({ source, folder: selectedFolder, threshold, group: groupId, use_phash: usePhash, use_crop: useCrop, sift_threshold: siftThreshold, min_inliers: minInliers });
   const es = new EventSource('/run?' + params);
 
   es.onmessage = (e) => {
@@ -391,8 +417,10 @@ def run_scan():
     source    = request.args.get("source", "whatsapp")
     folder    = request.args.get("folder", "")
     threshold  = int(request.args.get("threshold", config.PHASH_THRESHOLD))
-    use_phash  = request.args.get("use_phash", "0") == "1"
-    use_crop   = request.args.get("use_crop", "0") == "1"
+    use_phash       = request.args.get("use_phash", "0") == "1"
+    use_crop        = request.args.get("use_crop", "0") == "1"
+    sift_threshold  = float(request.args.get("sift_threshold", 65)) / 100
+    min_inliers     = int(request.args.get("min_inliers", 50))
     group_id_raw = request.args.get("group", "")
     group_ids = [int(group_id_raw)] if group_id_raw else [config.GROUP_1_ID]
 
@@ -454,7 +482,7 @@ def run_scan():
 
             if use_crop:
                 yield "data: Анализирую обрезанные копии (SIFT)...\n\n"
-            crop_pairs = find_crop_duplicates(photos, exact_hashes) if use_crop else []
+            crop_pairs = find_crop_duplicates(photos, exact_hashes, sift_threshold, min_inliers) if use_crop else []
 
             yield "data: Генерирую отчёт...\n\n"
             report_path = generate_report(exact_pairs, similar_pairs, crop_pairs, total_photos=len(photos))
