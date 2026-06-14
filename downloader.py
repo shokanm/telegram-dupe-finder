@@ -6,6 +6,7 @@ from pathlib import Path
 
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
+from telethon.tl.functions.channels import GetForumTopicsRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from PIL import Image
 from tqdm import tqdm
@@ -39,12 +40,42 @@ async def _save_images(src: str, thumb_path: str, full_path: str):
     img.save(thumb_path, "JPEG", quality=75)
 
 
+async def _iter_messages(client: TelegramClient, entity):
+    """Iterate messages from regular group or all topics of a forum group."""
+    is_forum = getattr(entity, "forum", False)
+    if not is_forum:
+        async for msg in client.iter_messages(entity):
+            yield msg
+        return
+
+    # Forum group — get all topics then iterate each
+    print(f"  Форум-группа: получаю топики...")
+    try:
+        result = await client(GetForumTopicsRequest(
+            channel=entity, q="",
+            offset_date=0, offset_id=0, offset_topic=0,
+            limit=100,
+        ))
+        topics = result.topics
+    except Exception as e:
+        print(f"  Не удалось получить топики: {e}. Читаю как обычную группу.")
+        async for msg in client.iter_messages(entity):
+            yield msg
+        return
+
+    print(f"  Топиков найдено: {len(topics)}")
+    for topic in topics:
+        async for msg in client.iter_messages(entity, reply_to=topic.id):
+            yield msg
+
+
 async def fetch_new_photos(client: TelegramClient, group_id: int, on_progress=None):
     thumbs_dir = Path(config.THUMBS_DIR)
     thumbs_dir.mkdir(parents=True, exist_ok=True)
 
     entity = await client.get_entity(group_id)
     group_name = getattr(entity, "title", str(group_id))
+    is_forum = getattr(entity, "forum", False)
 
     since = get_last_run(group_id)
     if since is None:
@@ -53,16 +84,19 @@ async def fetch_new_photos(client: TelegramClient, group_id: int, on_progress=No
     else:
         print(f"  [{group_name}] Инкрементальный запуск — с {since.date()}")
 
-    # Получаем общее количество сообщений для прогресс-бара
-    total = (await client.get_messages(entity, limit=0)).total
-    print(f"  [{group_name}] Всего сообщений в группе: {total}")
+    if is_forum:
+        total = 0  # неизвестно заранее для форумов
+        print(f"  [{group_name}] Режим: форум с топиками")
+    else:
+        total = (await client.get_messages(entity, limit=0)).total
+        print(f"  [{group_name}] Всего сообщений: {total}")
 
     count = 0
     processed = 0
     newest_date = since
 
-    with tqdm(total=total, desc=group_name, unit="фото", ncols=70, colour="green") as bar:
-        async for message in client.iter_messages(entity):
+    with tqdm(total=total or None, desc=group_name, unit="фото", ncols=70, colour="green") as bar:
+        async for message in _iter_messages(client, entity):
             # Принимаем фото и изображения отправленные как документ
             is_photo = isinstance(message.media, MessageMediaPhoto)
             is_image_doc = (
