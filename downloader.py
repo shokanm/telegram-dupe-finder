@@ -6,7 +6,7 @@ from pathlib import Path
 
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
-from telethon.tl.types import MessageMediaPhoto
+from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from PIL import Image
 from tqdm import tqdm
 
@@ -53,16 +53,26 @@ async def fetch_new_photos(client: TelegramClient, group_id: int, on_progress=No
     else:
         print(f"  [{group_name}] Инкрементальный запуск — с {since.date()}")
 
-    # Получаем общее количество фото для прогресс-бара
-    total = (await client.get_messages(entity, filter=MessageMediaPhoto, limit=0)).total
-    print(f"  [{group_name}] Всего фото в группе: {total}")
+    # Получаем общее количество сообщений для прогресс-бара
+    total = (await client.get_messages(entity, limit=0)).total
+    print(f"  [{group_name}] Всего сообщений в группе: {total}")
 
     count = 0
     processed = 0
     newest_date = since
 
     with tqdm(total=total, desc=group_name, unit="фото", ncols=70, colour="green") as bar:
-        async for message in client.iter_messages(entity, filter=MessageMediaPhoto):
+        async for message in client.iter_messages(entity):
+            # Принимаем фото и изображения отправленные как документ
+            is_photo = isinstance(message.media, MessageMediaPhoto)
+            is_image_doc = (
+                isinstance(message.media, MessageMediaDocument)
+                and getattr(message.media.document, "mime_type", "").startswith("image/")
+            )
+            if not (is_photo or is_image_doc):
+                bar.update(1)
+                continue
+
             msg_date = message.date.replace(tzinfo=timezone.utc) if message.date.tzinfo is None else message.date
             processed += 1
             if on_progress:
