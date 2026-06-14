@@ -14,7 +14,7 @@ from telethon.tl.types import Channel, Chat
 
 import config
 from db import init_db, get_all_photos, get_photos_by_groups, update_group_name, clear_all
-from hasher import find_exact_duplicates, find_similar_duplicates
+from hasher import find_exact_duplicates, find_similar_duplicates, find_crop_duplicates
 from reporter import generate_report
 from whatsapp_loader import load_whatsapp_export
 
@@ -134,6 +134,16 @@ h1{font-size:1.5rem;font-weight:700;letter-spacing:-.03em;margin-bottom:6px}
       </select>
       <button class="btn-load" id="btn-load" onclick="loadGroups()">Загрузить группы</button>
     </div>
+  </div>
+
+  <div class="field">
+    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="use-crop" style="margin-top:3px;accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+      <span>
+        <span style="font-size:.88rem;font-weight:600;color:var(--text)">Искать обрезанные копии</span><br>
+        <span style="font-size:.78rem;color:var(--muted)">Находит фото, которое является кадрированием или зумом другого. Работает даже если убран фон.</span>
+      </span>
+    </label>
   </div>
 
   <div class="field">
@@ -266,9 +276,10 @@ async function runScan() {
   document.getElementById('progress-fill').style.width = '0%';
 
   const usePhash = document.getElementById('use-phash').checked ? '1' : '0';
+  const useCrop  = document.getElementById('use-crop').checked  ? '1' : '0';
   const threshold = document.getElementById('threshold').value;
   const groupId = document.getElementById('group-select')?.value || '';
-  const params = new URLSearchParams({ source, folder: selectedFolder, threshold, group: groupId, use_phash: usePhash });
+  const params = new URLSearchParams({ source, folder: selectedFolder, threshold, group: groupId, use_phash: usePhash, use_crop: useCrop });
   const es = new EventSource('/run?' + params);
 
   es.onmessage = (e) => {
@@ -381,6 +392,7 @@ def run_scan():
     folder    = request.args.get("folder", "")
     threshold  = int(request.args.get("threshold", config.PHASH_THRESHOLD))
     use_phash  = request.args.get("use_phash", "0") == "1"
+    use_crop   = request.args.get("use_crop", "0") == "1"
     group_id_raw = request.args.get("group", "")
     group_ids = [int(group_id_raw)] if group_id_raw else [config.GROUP_1_ID]
 
@@ -440,9 +452,13 @@ def run_scan():
             exact_hashes = {p["file_hash"] for pair in exact_pairs for p in pair if p.get("file_hash")}
             similar_pairs = find_similar_duplicates(photos, threshold, exact_hashes) if use_phash else []
 
+            if use_crop:
+                yield "data: Анализирую обрезанные копии (SIFT)...\n\n"
+            crop_pairs = find_crop_duplicates(photos, exact_hashes) if use_crop else []
+
             yield "data: Генерирую отчёт...\n\n"
-            report_path = generate_report(exact_pairs, similar_pairs, total_photos=len(photos))
-            total_found = len(exact_pairs) + len(similar_pairs)
+            report_path = generate_report(exact_pairs, similar_pairs, crop_pairs, total_photos=len(photos))
+            total_found = len(exact_pairs) + len(similar_pairs) + len(crop_pairs)
             yield f"data: DONE:{report_path}:{total_found}\n\n"
 
         except Exception as e:

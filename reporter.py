@@ -29,6 +29,7 @@ h3 { font-size: .85rem; font-weight: 600; color: #6e6e73; margin: 14px 0 8px; te
 .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .68rem; font-weight: 600; margin-bottom: 4px; }
 .badge-exact { background: #ffd60a; color: #1d1d1f; }
 .badge-similar { background: #30d158; color: #fff; }
+.badge-crop { background: #ff9500; color: #fff; }
 .badge-cross { background: #6366f1; color: #fff; }
 .dist { font-size: .75rem; color: #6e6e73; align-self: center; text-align: center; padding: 0 8px; line-height: 1.6; }
 .dist b { font-size: 1.1rem; color: #1d1d1f; }
@@ -89,6 +90,17 @@ def _pair_html_exact(a: dict, b: dict) -> str:
     )
 
 
+def _pair_html_crop(a: dict, b: dict, score: float) -> str:
+    pct = round(score * 100)
+    return (
+        '<div class="pair">'
+        + _photo_card(a, "Оригинал", "badge-crop")
+        + '<div class="dist">совпадение<br><b>' + str(pct) + '%</b></div>'
+        + _photo_card(b, "Кроп", "badge-crop")
+        + '</div>\n'
+    )
+
+
 def _pair_html_similar(a: dict, b: dict, dist: int, cross: bool) -> str:
     badge = "badge-cross" if cross else "badge-similar"
     similarity = round((1 - dist / 256) * 100)
@@ -119,6 +131,7 @@ def _section_html(pairs_html: str, group_name: str, cross: bool = False) -> str:
 def generate_report(
     exact_pairs: list[tuple[dict, dict]],
     similar_pairs: list[tuple[dict, dict, int]],
+    crop_pairs: list[tuple[dict, dict, float]] | None = None,
     total_photos: int = 0,
 ) -> str:
     now = datetime.now()
@@ -165,9 +178,23 @@ def generate_report(
     if not similar_html:
         similar_html = '<p class="empty">Похожих фото не найдено.</p>'
 
+    # ── Обрезанные копии ──────────────────────────────────────────────
+    crop_pairs = crop_pairs or []
+    crop_by_group: dict[str, str] = {}
+    for a, b, score in sorted(crop_pairs, key=lambda x: -x[2]):
+        key = a.get("group_name", "Неизвестная группа")
+        crop_by_group[key] = crop_by_group.get(key, "") + _pair_html_crop(a, b, score)
+
+    crop_html = ""
+    for gname, pairs_html in crop_by_group.items():
+        crop_html += _section_html(pairs_html, gname)
+    if not crop_html:
+        crop_html = '<p class="empty">Обрезанных копий не найдено.</p>'
+
     n_exact = len(exact_pairs)
     n_similar = len(similar_pairs)
-    n_total = n_exact + n_similar
+    n_crop = len(crop_pairs)
+    n_total = n_exact + n_similar + n_crop
     date_str = now.strftime("%d.%m.%Y в %H:%M")
     threshold = str(config.PHASH_THRESHOLD)
 
@@ -184,10 +211,12 @@ def generate_report(
         '<div class="stat"><div class="stat-num">' + str(total_photos) + '</div><div class="stat-label">Фото проверено</div></div>'
         '<div class="stat" style="border-left:1px solid #e5e5ea;padding-left:24px">'
         '<div class="stat-num">' + str(n_exact) + '</div><div class="stat-label">Точных дубликатов</div></div>'
+        '<div class="stat"><div class="stat-num">' + str(n_crop) + '</div><div class="stat-label">Обрезанных копий</div></div>'
         '<div class="stat"><div class="stat-num">' + str(n_similar) + '</div><div class="stat-label">Похожих пар</div></div>'
         '<div class="stat"><div class="stat-num">' + str(n_total) + '</div><div class="stat-label">Всего находок</div></div>'
         '</div>\n'
         '<h2>Точные дубликаты (одинаковый файл)</h2>\n' + exact_html + '\n'
+        '<h2>Обрезанные копии</h2>\n' + crop_html + '\n'
         '<h2>Похожие фото</h2>\n' + similar_html + '\n'
         '<div class="lightbox" id="lb" onclick="closeLb(event)">'
         '<span class="lightbox-close" onclick="document.getElementById(\'lb\').classList.remove(\'active\')">&times;</span>'
