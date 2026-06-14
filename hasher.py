@@ -82,7 +82,7 @@ def find_crop_duplicates(
     import config
     from skimage.feature import match_descriptors
 
-    threshold = config.CROP_SIFT_THRESHOLD
+    threshold = getattr(config, "CROP_SIFT_THRESHOLD", 0.5)
     candidates = [p for p in photos if p["file_hash"] not in exact_hashes]
 
     # Extract all descriptors first (skip photos with missing files)
