@@ -55,8 +55,8 @@ def find_exact_duplicates(photos: list[dict]) -> list[tuple[dict, dict]]:
 _SIFT_MAX_SIDE = 400  # px — downscale before SIFT for speed
 
 
-def _sift_descriptors(file_path: str):
-    """Extract SIFT descriptors from an image scaled to _SIFT_MAX_SIDE."""
+def _sift_extract(file_path: str):
+    """Extract SIFT keypoints+descriptors from an image scaled to _SIFT_MAX_SIDE."""
     from skimage.feature import SIFT
     from skimage.color import rgb2gray
 
@@ -68,7 +68,7 @@ def _sift_descriptors(file_path: str):
     gray = rgb2gray(np.array(img.convert("RGB")))
     sift = SIFT()
     sift.detect_and_extract(gray)
-    return sift.descriptors.copy()
+    return sift.keypoints.copy(), sift.descriptors.copy()
 
 
 def find_crop_duplicates(
@@ -76,37 +76,58 @@ def find_crop_duplicates(
     exact_hashes: set[str],
 ) -> list[tuple[dict, dict, float]]:
     """
-    Detect pairs where one photo is a crop/zoom of the other using SIFT.
+    Detect pairs where one photo is a crop/zoom of the other.
+    Two-stage: SIFT score >= threshold, then RANSAC inlier count >= min_inliers.
     Returns triples: (photo_a, photo_b, sift_score 0-1).
     """
     import config
     from skimage.feature import match_descriptors
+    from skimage.measure import ransac
+    from skimage.transform import AffineTransform
 
-    threshold = getattr(config, "CROP_SIFT_THRESHOLD", 0.5)
+    sift_threshold = getattr(config, "CROP_SIFT_THRESHOLD", 0.65)
+    min_inliers    = getattr(config, "CROP_MIN_INLIERS", 50)
+
     candidates = [p for p in photos if p["file_hash"] not in exact_hashes]
 
-    # Extract all descriptors first (skip photos with missing files)
-    desc_map: dict[int, object] = {}
+    kp_map: dict[int, tuple] = {}
     for p in candidates:
         path = p.get("full_path") or p.get("thumb_path")
         if path and os.path.exists(path):
             try:
-                desc_map[p["id"]] = _sift_descriptors(path)
+                kp_map[p["id"]] = _sift_extract(path)
             except Exception:
                 pass
 
     pairs = []
-    ids = [p for p in candidates if p["id"] in desc_map]
+    ids = [p for p in candidates if p["id"] in kp_map]
     for i in range(len(ids)):
         for j in range(i + 1, len(ids)):
             a, b = ids[i], ids[j]
-            d1, d2 = desc_map[a["id"]], desc_map[b["id"]]
+            kp1, d1 = kp_map[a["id"]]
+            kp2, d2 = kp_map[b["id"]]
             if len(d1) == 0 or len(d2) == 0:
                 continue
+
             matches = match_descriptors(d1, d2, cross_check=True, max_ratio=0.8)
             score = len(matches) / min(len(d1), len(d2))
-            if score >= threshold:
-                pairs.append((a, b, round(score, 3)))
+            if score < sift_threshold:
+                continue
+
+            # RANSAC: verify geometric consistency and enough inliers
+            src = kp1[matches[:, 0]][:, ::-1]
+            dst = kp2[matches[:, 1]][:, ::-1]
+            try:
+                _, inliers = ransac(
+                    (src, dst), AffineTransform,
+                    min_samples=4, residual_threshold=2, max_trials=200,
+                )
+                if inliers is None or int(np.sum(inliers)) < min_inliers:
+                    continue
+            except Exception:
+                continue
+
+            pairs.append((a, b, round(score, 3)))
     return pairs
 
 
