@@ -6,7 +6,7 @@ from pathlib import Path
 
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
-from telethon.tl.functions.channels import GetForumTopicsRequest
+from telethon.tl.functions.messages import GetForumTopicsRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from PIL import Image
 from tqdm import tqdm
